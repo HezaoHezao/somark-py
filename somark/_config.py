@@ -22,27 +22,16 @@ VALID_ACTIVE_MODES = ("oxr", "api", "private")
 # OXR free-tier hard limits (client-side guard; do not silently truncate)
 OXR_MAX_FILE_BYTES = 10 * 1024 * 1024
 OXR_MAX_PAGES = 20
+# OXR 官方文件格式（8 种）；Office 等完整格式仅 api/private
 OXR_ALLOWED_SUFFIXES = {
     ".pdf",
     ".png",
     ".jpg",
     ".jpeg",
     ".bmp",
-    ".tiff",
     ".tif",
-    ".jp2",
-    ".dib",
-    ".ppm",
-    ".pgm",
-    ".pbm",
-    ".gif",
-    ".heic",
-    ".heif",
+    ".tiff",
     ".webp",
-    ".xpm",
-    ".tga",
-    ".dds",
-    ".xbm",
 }
 CONFIG_DIR = Path.home() / ".somark"
 CONFIG_FILE = CONFIG_DIR / "config.toml"
