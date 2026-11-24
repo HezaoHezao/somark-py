@@ -21,8 +21,15 @@ class DocumentParser:
         self._http = http
 
     def _check_api_key(self):
-        if not self._http.api_key:
-            raise AuthenticationError("api_key is required for parser operations.")
+        # OXR free endpoint may run without a user API key.
+        from somark._config import OXR_DEFAULT_BASE_URL
+
+        if self._http.api_key:
+            return
+        base = (getattr(self._http, "base_url", None) or "").rstrip("/")
+        if base == OXR_DEFAULT_BASE_URL.rstrip("/") or "free-oxr" in base:
+            return
+        raise AuthenticationError("api_key is required for parser operations.")
 
     def _poll_task(self, task_id: str) -> dict:
         self._check_api_key()
@@ -157,8 +164,15 @@ class AsyncDocumentParser:
         self._http = http
 
     def _check_api_key(self):
-        if not self._http.api_key:
-            raise AuthenticationError("api_key is required for parser operations.")
+        # OXR free endpoint may run without a user API key.
+        from somark._config import OXR_DEFAULT_BASE_URL
+
+        if self._http.api_key:
+            return
+        base = (getattr(self._http, "base_url", None) or "").rstrip("/")
+        if base == OXR_DEFAULT_BASE_URL.rstrip("/") or "free-oxr" in base:
+            return
+        raise AuthenticationError("api_key is required for parser operations.")
 
     async def _poll_task(self, task_id: str) -> dict:
         self._check_api_key()

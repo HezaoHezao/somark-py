@@ -71,6 +71,11 @@ def parse(
     is_batch = len(input_files) > 1 or file_list is not None
 
     try:
+        from somark._config import enforce_oxr_input_limits, resolve_config
+
+        if input_files and (resolve_config().get("active_mode") or "oxr") == "oxr":
+            enforce_oxr_input_limits(input_files)
+
         if task_id:
             task = client.parser.task(task_id)
             if wait:
