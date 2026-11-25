@@ -118,7 +118,7 @@ def test_usage_with_mock():
     mock_client = MagicMock()
     mock_client.usage.get.return_value = mock_usage
 
-    with patch("somark.cli.main._make_client", return_value=mock_client):
+    with patch("somark.cli._runtime.make_client", return_value=mock_client):
         result = runner.invoke(app, ["usage", "--format", "text"])
     assert result.exit_code == 0
     assert "1,000" in result.output or "1000" in result.output
@@ -140,7 +140,7 @@ def test_parse_task_wait_saves_output(tmp_path, parse_response_data):
     mock_client = MagicMock()
     mock_client.parser.task.return_value = Task("task-123", lambda task_id: task_data)
 
-    with patch("somark.cli.main._make_client", return_value=mock_client), patch("time.sleep"):
+    with patch("somark.cli._runtime.make_client", return_value=mock_client), patch("time.sleep"):
         result = runner.invoke(app, ["parse", "--task-id", "task-123", "--wait", "--out", str(output)])
 
     assert result.exit_code == 0
@@ -159,7 +159,7 @@ def test_parse_single_format_without_out_writes_stdout(tmp_path, parse_response_
     mock_client = MagicMock()
     mock_client.parser.parse.return_value = response
 
-    with patch("somark.cli.main._make_client", return_value=mock_client):
+    with patch("somark.cli._runtime.make_client", return_value=mock_client):
         result = runner.invoke(app, ["parse", str(input_file), "--formats", "md"])
 
     assert result.exit_code == 0
@@ -173,7 +173,7 @@ def test_parse_multiple_formats_without_out_errors(tmp_path):
     input_file.write_bytes(b"png")
     mock_client = MagicMock()
 
-    with patch("somark.cli.main._make_client", return_value=mock_client):
+    with patch("somark.cli._runtime.make_client", return_value=mock_client):
         result = runner.invoke(app, ["parse", str(input_file), "--formats", "md,json"])
 
     assert result.exit_code == 1
@@ -194,7 +194,7 @@ def test_parse_existing_directory_writes_all_formats(tmp_path, parse_response_da
     mock_client = MagicMock()
     mock_client.parser.parse.return_value = response
 
-    with patch("somark.cli.main._make_client", return_value=mock_client):
+    with patch("somark.cli._runtime.make_client", return_value=mock_client):
         result = runner.invoke(app, ["parse", str(input_file), "--formats", "md,json", "--out", str(output_dir)])
 
     assert result.exit_code == 0
@@ -213,7 +213,7 @@ def test_parse_single_format_out_file_writes_file(tmp_path, parse_response_data)
     mock_client = MagicMock()
     mock_client.parser.parse.return_value = response
 
-    with patch("somark.cli.main._make_client", return_value=mock_client):
+    with patch("somark.cli._runtime.make_client", return_value=mock_client):
         result = runner.invoke(app, ["parse", str(input_file), "--formats", "md", "--out", str(output_file)])
 
     assert result.exit_code == 0
@@ -227,7 +227,7 @@ def test_parse_multiple_formats_out_file_errors(tmp_path):
     output_file = tmp_path / "result.md"
     mock_client = MagicMock()
 
-    with patch("somark.cli.main._make_client", return_value=mock_client):
+    with patch("somark.cli._runtime.make_client", return_value=mock_client):
         result = runner.invoke(app, ["parse", str(input_file), "--formats", "md,json", "--out", str(output_file)])
 
     assert result.exit_code == 1
@@ -242,7 +242,7 @@ def test_parse_missing_output_directory_errors(tmp_path):
     mock_client = MagicMock()
     missing_dir = tmp_path / "missing"
 
-    with patch("somark.cli.main._make_client", return_value=mock_client):
+    with patch("somark.cli._runtime.make_client", return_value=mock_client):
         result = runner.invoke(app, ["parse", str(input_file), "--formats", "md", "--out", str(missing_dir) + "/"])
 
     assert result.exit_code == 1
@@ -256,7 +256,7 @@ def test_parse_missing_output_parent_errors(tmp_path):
     input_file.write_bytes(b"png")
     mock_client = MagicMock()
 
-    with patch("somark.cli.main._make_client", return_value=mock_client):
+    with patch("somark.cli._runtime.make_client", return_value=mock_client):
         result = runner.invoke(
             app,
             ["parse", str(input_file), "--formats", "md", "--out", str(tmp_path / "missing" / "result.md")],
@@ -298,7 +298,7 @@ def test_parse_file_list_batch_outputs_and_warns(tmp_path, parse_response_data, 
 
     mock_client.parser.parse.side_effect = parse_batch
 
-    with patch("somark.cli.main._make_client", return_value=mock_client):
+    with patch("somark.cli._runtime.make_client", return_value=mock_client):
         with pytest.warns(SoMarkWarning, match="sdk concurrency warning"):
             result = runner.invoke(app, ["parse", "--file-list", str(manifest), "--out", str(output_dir)])
 
@@ -340,7 +340,7 @@ def test_no_warnings_suppresses_cli_warnings(tmp_path, parse_response_data, monk
 
     mock_client.parser.parse.side_effect = parse_batch
 
-    with patch("somark.cli.main._make_client", return_value=mock_client), warnings.catch_warnings(record=True) as caught:
+    with patch("somark.cli._runtime.make_client", return_value=mock_client), warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always", SoMarkWarning)
         result = runner.invoke(app, ["--no-warnings", "parse", "--file-list", str(manifest), "--out", str(output_dir)])
 
@@ -361,7 +361,7 @@ def test_parse_batch_prevalidates_missing_and_exits_nonzero(tmp_path, parse_resp
     mock_client = MagicMock()
     mock_client.parser.parse.side_effect = InvalidParamError(f"File not found: {missing}")
 
-    with patch("somark.cli.main._make_client", return_value=mock_client):
+    with patch("somark.cli._runtime.make_client", return_value=mock_client):
         result = runner.invoke(app, ["parse", str(existing), str(missing), "--out", str(output_dir)])
 
     assert result.exit_code == 1
@@ -369,7 +369,7 @@ def test_parse_batch_prevalidates_missing_and_exits_nonzero(tmp_path, parse_resp
     assert "missing.pdf" in result.output
     assert "Summary:" not in result.output
     assert not (output_dir / "a.md").exists()
-    mock_client.parser.parse.assert_called_once()
+    mock_client.parser.parse.assert_not_called()
 
 
 def test_parse_batch_without_out_errors(tmp_path):
@@ -380,7 +380,7 @@ def test_parse_batch_without_out_errors(tmp_path):
     second.write_bytes(b"%PDF-1.0 b")
     mock_client = MagicMock()
 
-    with patch("somark.cli.main._make_client", return_value=mock_client):
+    with patch("somark.cli._runtime.make_client", return_value=mock_client):
         result = runner.invoke(app, ["parse", str(first), str(second)])
 
     assert result.exit_code == 1
@@ -396,7 +396,7 @@ def test_parse_batch_missing_output_dir_errors(tmp_path):
     second.write_bytes(b"%PDF-1.0 b")
     mock_client = MagicMock()
 
-    with patch("somark.cli.main._make_client", return_value=mock_client):
+    with patch("somark.cli._runtime.make_client", return_value=mock_client):
         result = runner.invoke(app, ["parse", str(first), str(second), "--out", str(tmp_path / "out")])
 
     assert result.exit_code == 1

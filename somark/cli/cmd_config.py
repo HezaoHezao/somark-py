@@ -1,5 +1,6 @@
 from __future__ import annotations
 import typer
+from somark._config import get_config_value, list_resolved_config, mask_config_value, save_config
 from somark.cli._help import HELP_CONTEXT_SETTINGS, examples
 from somark.cli._output import console, print_success, print_error
 
@@ -17,7 +18,6 @@ def config_set(
     value: str = typer.Argument(..., help="Config value"),
     show: bool = typer.Option(False, "--show", help="Show secret values in output"),
 ):
-    from somark._config import save_config, mask_config_value
     try:
         save_config(**{key: value})
         display_value = value if show else mask_config_value(key, value)
@@ -32,7 +32,6 @@ def config_get(
     key: str = typer.Argument(..., help="Config key"),
     show: bool = typer.Option(False, "--show", help="Show secret values in output"),
 ):
-    from somark._config import get_config_value, mask_config_value
     val = get_config_value(key)
     if val is not None:
         display_value = val if show else mask_config_value(key, str(val))
@@ -46,8 +45,6 @@ def config_list(
     show: bool = typer.Option(False, "--show", help="Show secret values in output"),
 ):
     """List all config values (effective: env > file > default)."""
-    from somark._config import list_resolved_config, mask_config_value
-
     def _source_label(source: str) -> str:
         colors = {"env": "cyan", "file": "yellow", "default": "dim"}
         return f"[{colors.get(source, '')}][{source}][/{colors.get(source, '')}]"

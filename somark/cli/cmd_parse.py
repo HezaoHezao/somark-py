@@ -6,7 +6,10 @@ from typing import Any, List, Optional
 import typer
 from rich.table import Table
 
-from somark._models import OutputPlan, plan_output
+from somark._config import enforce_oxr_input_limits, is_oxr_endpoint, resolve_config
+from somark._exceptions import InvalidParamError, SoMarkError
+from somark._models import ElementFormats, ExtractConfig, OutputPlan, normalize_save_formats, plan_output
+import somark.cli._runtime as runtime
 from somark.cli._help import HELP_CONTEXT_SETTINGS, examples
 from somark.cli._output import console, make_spinner, print_error, print_success
 from somark.resources._parse_core import resolve_cli_file_inputs
@@ -51,11 +54,7 @@ def parse(
     wait: bool = typer.Option(False, "--wait", help="Wait for async task (use with --task-id)"),
     verbose: bool = typer.Option(False, "--verbose", help="Verbose output"),
 ):
-    from somark._exceptions import SoMarkError
-    from somark._models import ElementFormats, ExtractConfig, normalize_save_formats
-    from somark.cli.main import _make_client
-
-    client = _make_client()
+    client = runtime.make_client()
     fmt_list = normalize_save_formats(formats)
     extract_config = ExtractConfig(
         enable_title_level_recognition=title_levels,
@@ -71,6 +70,14 @@ def parse(
     is_batch = len(input_files) > 1 or file_list is not None
 
     try:
+        if input_files:
+            missing = [item for item in input_files if not Path(item).exists()]
+            if missing:
+                raise InvalidParamError("File not found: " + ", ".join(missing))
+            cfg = resolve_config(api_key=runtime.api_key, base_url=runtime.base_url)
+            if is_oxr_endpoint(cfg.get("base_url") or ""):
+                enforce_oxr_input_limits(input_files)
+
         if task_id:
             task = client.parser.task(task_id)
             if wait:
@@ -188,8 +195,6 @@ def parse(
 
 
 def _collect_input_files(files: List[str], file_list: Optional[str]) -> List[str]:
-    from somark._exceptions import InvalidParamError
-
     try:
         return resolve_cli_file_inputs(files, file_list).files
     except InvalidParamError as exc:

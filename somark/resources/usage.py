@@ -9,6 +9,9 @@ class UsageClient:
         self._http = http
 
     def get(self) -> Usage:
+        from somark.resources.parser import _require_parser_credentials
+
+        _require_parser_credentials(self._http)
         if not self._http.api_key:
             raise AuthenticationError("api_key is required for usage queries.")
         result = self._http.post("/usage", data={})
@@ -22,6 +25,9 @@ class AsyncUsageClient:
         self._http = http
 
     async def get(self) -> Usage:
+        from somark.resources.parser import _require_parser_credentials
+
+        _require_parser_credentials(self._http)
         if not self._http.api_key:
             raise AuthenticationError("api_key is required for usage queries.")
         result = await self._http.post("/usage", data={})
