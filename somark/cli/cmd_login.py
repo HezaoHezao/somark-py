@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from typing import Optional
 
 import typer
@@ -7,55 +8,90 @@ import typer
 from somark.cli._output import console, print_error, print_success
 
 
+def _read_secret(value: Optional[str], *, allow_empty: bool) -> str:
+    if value is not None:
+        return str(value).strip()
+    if sys.stdin.isatty():
+        if allow_empty:
+            entered = typer.prompt("Enter your API key (optional)", default="", hide_input=True)
+        else:
+            entered = typer.prompt("Enter your API key", hide_input=True)
+        return str(entered or "").strip()
+    return sys.stdin.readline().strip()
+
+
 def login(
-    region: Optional[str] = typer.Option(
-        None,
-        "--region",
-        help="Official site: cn (国内站 somark.cn) | ai (国外站 somark.ai). Default: prompt / cn.",
-    ),
+    url: Optional[str] = typer.Option(None, "--url", help="Private or official base URL. Omit to probe cn/ai from the API key."),
+    api_key: Optional[str] = typer.Option(None, "--api-key", help="API key. Official keys must start with sk-. Private keys are optional."),
     no_open: bool = typer.Option(False, "--no-open", help="Don't open browser"),
 ):
-    """Login to SoMark official API: pick CN/AI site, save API key + matching base_url (overwrites previous key)."""
+    """Save SoMark credentials. A URL selects the destination; a key alone probes the official site."""
     from somark._config import (
         CONFIG_FILE,
-        OFFICIAL_REGION_BASE_URLS,
         OFFICIAL_REGION_WORKBENCH,
+        classify_destination,
+        clear_config,
         save_config,
     )
+    from somark._probe import probe_official_base_url
 
-    choice = (region or "").strip().lower()
-    if choice not in OFFICIAL_REGION_BASE_URLS:
-        console.print("选择官网站点（API Key 与 Base URL 必须同一站点）：")
-        console.print("  1) cn — 国内站 https://somark.cn  （大陆用户推荐）")
-        console.print("  2) ai — 国外站 https://somark.ai  （含港澳台及海外）")
-        raw = typer.prompt("请输入 1/cn 或 2/ai", default="cn")
-        raw = str(raw).strip().lower()
-        if raw in ("1", "cn", "china", "国内", "国内站"):
-            choice = "cn"
-        elif raw in ("2", "ai", "global", "国际", "国外", "国外站"):
-            choice = "ai"
-        else:
-            print_error("Invalid region. Use --region cn or --region ai")
+    if url is None:
+        if not no_open and sys.stdin.isatty():
+            import webbrowser
+
+            workbench = OFFICIAL_REGION_WORKBENCH["cn"]
+            console.print(f"Opening {workbench} in your browser...")
+            webbrowser.open(workbench)
+        key = _read_secret(api_key, allow_empty=False)
+        if not key.startswith("sk-"):
+            print_error("Invalid API key format (should start with 'sk-')")
             raise typer.Exit(1)
+        found = probe_official_base_url(key)
+        if not found:
+            print_error("Could not reach somark.cn or somark.ai with this API key. Nothing was saved.")
+            raise typer.Exit(1)
+        save_config(api_key=key, base_url=found, active_mode="auto")
+        print_success(f"Authenticated. Key + base_url saved to {CONFIG_FILE}")
+        console.print(f"base_url={found}")
+        console.print("active_mode=auto")
+        return
 
-    base_url = OFFICIAL_REGION_BASE_URLS[choice]
-    url = OFFICIAL_REGION_WORKBENCH[choice]
-    site_label = "国内站 somark.cn" if choice == "cn" else "国外站 somark.ai"
-
-    if not no_open:
-        import webbrowser
-
-        console.print(f"Opening {url} ({site_label}) in your browser...")
-        webbrowser.open(url)
-    else:
-        console.print(f"Visit {url} to register / login and create an API key ({site_label}).")
-
-    api_key = typer.prompt("Enter your API key", hide_input=True)
-    if not api_key.startswith("sk-"):
-        print_error("Invalid API key format (should start with 'sk-')")
+    target = str(url).strip()
+    if not target.startswith(("http://", "https://")):
+        print_error("Invalid URL (must start with http:// or https://)")
         raise typer.Exit(1)
+    try:
+        kind = classify_destination(target)
+    except ValueError as exc:
+        print_error(str(exc))
+        raise typer.Exit(1)
+    target = target.rstrip("/")
 
-    save_config(api_key=api_key, base_url=base_url)
-    print_success(f"Authenticated ({site_label}). Key + base_url saved to {CONFIG_FILE}")
-    console.print(f"base_url={base_url}")
-    console.print("Tip: re-run login to replace the key; run `somark logout` (or `somark auth logout`) to delete credentials.")
+    if kind == "oxr":
+        save_config(active_mode="oxr")
+        print_success("Switched active_mode to oxr")
+        console.print("active_mode=oxr")
+        return
+
+    if kind == "official":
+        key = _read_secret(api_key, allow_empty=False)
+        if not key.startswith("sk-"):
+            print_error("Invalid API key format (should start with 'sk-')")
+            raise typer.Exit(1)
+        save_config(api_key=key, base_url=target, active_mode="auto")
+        print_success(f"Authenticated. Key + base_url saved to {CONFIG_FILE}")
+        console.print(f"base_url={target}")
+        console.print("active_mode=auto")
+        return
+
+    key = _read_secret(api_key, allow_empty=True)
+    save_config(private_base_url=target, active_mode="private")
+    if key:
+        save_config(private_api_key=key)
+        note = "URL + API key"
+    else:
+        clear_config("private_api_key")
+        save_config(private_api_key="")
+        note = "URL only（已清除 API key）"
+    print_success(f"Private deployment saved ({note}) → {CONFIG_FILE}")
+    console.print("active_mode=private")

@@ -71,10 +71,17 @@ def parse(
     is_batch = len(input_files) > 1 or file_list is not None
 
     try:
-        from somark._config import enforce_oxr_input_limits, resolve_config
+        from somark._config import enforce_oxr_input_limits, is_oxr_endpoint, resolve_config
+        from somark._exceptions import InvalidParamError
+        from somark.cli.main import _api_key, _base_url
 
-        if input_files and (resolve_config().get("active_mode") or "oxr") == "oxr":
-            enforce_oxr_input_limits(input_files)
+        if input_files:
+            missing = [item for item in input_files if not Path(item).exists()]
+            if missing:
+                raise InvalidParamError("File not found: " + ", ".join(missing))
+            cfg = resolve_config(api_key=_api_key, base_url=_base_url)
+            if is_oxr_endpoint(cfg.get("base_url") or ""):
+                enforce_oxr_input_limits(input_files)
 
         if task_id:
             task = client.parser.task(task_id)

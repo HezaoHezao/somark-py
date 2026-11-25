@@ -4,6 +4,32 @@ from typing import Optional, List, Dict, Union, overload
 
 from somark._models import ParseResponse, Task, AsyncTask, ExtractConfig, ElementFormats
 from somark._exceptions import AuthenticationError
+
+
+def _enforce_oxr_for_http(http, files: list[str]) -> None:
+    """Apply free-tier limits only when this request's host is the OXR endpoint."""
+    from somark._config import enforce_oxr_input_limits, is_oxr_endpoint
+
+    base = getattr(http, "base_url", None)
+    if isinstance(base, str) and is_oxr_endpoint(base):
+        enforce_oxr_input_limits(files)
+
+
+def _require_parser_credentials(http) -> None:
+    from somark._config import allows_missing_api_key
+
+    blocked = getattr(http, "request_blocked", None)
+    if isinstance(blocked, str) and blocked:
+        raise AuthenticationError(blocked)
+    if getattr(http, "api_key", None):
+        return
+    base = getattr(http, "base_url", None) or ""
+    private_url = getattr(http, "private_base_url", None)
+    if allows_missing_api_key(base, private_url):
+        return
+    if not str(base).strip():
+        raise AuthenticationError("active_mode=private requires private_base_url. Run: somark login --url <private-base>")
+    raise AuthenticationError("api_key is required for parser operations.")
 from somark._warnings import collect_api_warnings, emit_warnings
 from somark.resources._parse_core import (
     FileInput,
@@ -21,15 +47,7 @@ class DocumentParser:
         self._http = http
 
     def _check_api_key(self):
-        # OXR free endpoint may run without a user API key.
-        from somark._config import OXR_DEFAULT_BASE_URL
-
-        if self._http.api_key:
-            return
-        base = (getattr(self._http, "base_url", None) or "").rstrip("/")
-        if base == OXR_DEFAULT_BASE_URL.rstrip("/") or "free-oxr" in base:
-            return
-        raise AuthenticationError("api_key is required for parser operations.")
+        _require_parser_credentials(self._http)
 
     def _poll_task(self, task_id: str) -> dict:
         self._check_api_key()
@@ -88,6 +106,7 @@ class DocumentParser:
         self._check_api_key()
         resolved = resolve_file_inputs(file, file_list=file_list)
         ensure_files_exist(resolved.files)
+        _enforce_oxr_for_http(self._http, resolved.files)
         batch = run_limited_sync(
             resolved.files,
             lambda item: self._parse_one(
@@ -147,6 +166,7 @@ class DocumentParser:
         self._check_api_key()
         resolved = resolve_file_inputs(file, file_list=file_list)
         ensure_files_exist(resolved.files)
+        _enforce_oxr_for_http(self._http, resolved.files)
         batch = run_limited_sync(
             resolved.files,
             lambda item: self._create_one(
@@ -164,15 +184,7 @@ class AsyncDocumentParser:
         self._http = http
 
     def _check_api_key(self):
-        # OXR free endpoint may run without a user API key.
-        from somark._config import OXR_DEFAULT_BASE_URL
-
-        if self._http.api_key:
-            return
-        base = (getattr(self._http, "base_url", None) or "").rstrip("/")
-        if base == OXR_DEFAULT_BASE_URL.rstrip("/") or "free-oxr" in base:
-            return
-        raise AuthenticationError("api_key is required for parser operations.")
+        _require_parser_credentials(self._http)
 
     async def _poll_task(self, task_id: str) -> dict:
         self._check_api_key()
@@ -231,6 +243,7 @@ class AsyncDocumentParser:
         self._check_api_key()
         resolved = resolve_file_inputs(file, file_list=file_list)
         ensure_files_exist(resolved.files)
+        _enforce_oxr_for_http(self._http, resolved.files)
         batch = await run_limited_async(
             resolved.files,
             lambda item: self._parse_one(
@@ -290,6 +303,7 @@ class AsyncDocumentParser:
         self._check_api_key()
         resolved = resolve_file_inputs(file, file_list=file_list)
         ensure_files_exist(resolved.files)
+        _enforce_oxr_for_http(self._http, resolved.files)
         batch = await run_limited_async(
             resolved.files,
             lambda item: self._create_one(

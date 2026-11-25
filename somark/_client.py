@@ -2,13 +2,19 @@ from __future__ import annotations
 from typing import Optional
 import httpx
 
-from somark._config import resolve_config
+from somark._config import DEFAULT_BASE_URL, resolve_config
 from somark._http import HttpClient, AsyncHttpClient
 from somark._exceptions import AuthenticationError
 from somark.resources.parser import DocumentParser, AsyncDocumentParser
 from somark.resources.usage import UsageClient, AsyncUsageClient
 from somark.resources.pdf import PDFProcessor
 from somark.resources.preview import SoMarkDownPreview
+
+
+def _annotate_http(http, cfg: dict) -> None:
+    http.request_blocked = cfg.get("request_blocked")
+    http.private_base_url = cfg.get("private_base_url")
+    http.active_mode = cfg.get("active_mode")
 
 
 class SoMark:
@@ -25,11 +31,12 @@ class SoMark:
         cfg = resolve_config(api_key=api_key, base_url=base_url, timeout=timeout, max_retries=max_retries)
         self._http = HttpClient(
             api_key=cfg["api_key"],
-            base_url=cfg["base_url"],
+            base_url=cfg["base_url"] or ("" if cfg.get("request_blocked") else DEFAULT_BASE_URL),
             timeout=cfg["timeout"],
             max_retries=cfg["max_retries"],
             http_client=http_client,
         )
+        _annotate_http(self._http, cfg)
         self.parser = DocumentParser(self._http)
         self.usage = UsageClient(self._http)
         self.pdf = PDFProcessor()
@@ -68,11 +75,12 @@ class AsyncSoMark:
         cfg = resolve_config(api_key=api_key, base_url=base_url, timeout=timeout, max_retries=max_retries)
         self._http = AsyncHttpClient(
             api_key=cfg["api_key"],
-            base_url=cfg["base_url"],
+            base_url=cfg["base_url"] or ("" if cfg.get("request_blocked") else DEFAULT_BASE_URL),
             timeout=cfg["timeout"],
             max_retries=cfg["max_retries"],
             http_client=http_client,
         )
+        _annotate_http(self._http, cfg)
         self.parser = AsyncDocumentParser(self._http)
         self.usage = AsyncUsageClient(self._http)
         self.pdf = PDFProcessor()

@@ -5,7 +5,7 @@ import json
 import typer
 
 from somark.cli._help import HELP_CONTEXT_SETTINGS
-from somark.cli._output import console, print_success
+from somark.cli._output import console, print_error, print_success
 
 app = typer.Typer(help="Connection status helpers for WorkBuddy.", no_args_is_help=True)
 
@@ -18,24 +18,24 @@ def status(
     from somark._config import (
         get_active_profile,
         get_config_value,
-        has_official_api_key,
+        has_official_credentials,
         has_private_credentials,
         resolve_config,
     )
 
     cfg = resolve_config()
-    mode = cfg.get("active_mode") or "oxr"
+    mode = cfg.get("active_mode") or "auto"
     profile = get_active_profile() or "default"
 
     if mode == "oxr":
         logged_in = True
         method = "oxr"
-    elif mode == "api":
-        logged_in = has_official_api_key()
-        method = "api_key"
-    else:
+    elif mode == "private":
         logged_in = has_private_credentials()
-        method = "private_api_key"
+        method = "private"
+    else:
+        logged_in = has_official_credentials() and not cfg.get("request_blocked")
+        method = "auto"
 
     payload = {
         "logged_in": logged_in,
@@ -46,8 +46,13 @@ def status(
         "base_url": cfg.get("base_url"),
     }
 
-    if output == "json":
-        console.print(json.dumps(payload, ensure_ascii=False))
+    choice = output.strip().lower()
+    if choice not in {"text", "json"}:
+        print_error("Invalid --output. Use text or json")
+        raise typer.Exit(2)
+
+    if choice == "json":
+        typer.echo(json.dumps(payload, ensure_ascii=False))
     elif logged_in:
         console.print(f"active_mode={mode}")
         console.print(f"Ready ({method})")
@@ -60,9 +65,9 @@ def status(
 
 @app.command("logout", context_settings=HELP_CONTEXT_SETTINGS)
 def logout():
-    """Clear credentials and reset active_mode to oxr."""
+    """Clear both credential pairs and reset active_mode to auto."""
     from somark._config import clear_config, save_config
 
-    clear_config("api_key", "private_api_key", "private_base_url", "active_mode")
-    save_config(active_mode="oxr")
-    print_success("Logged out; active_mode reset to oxr")
+    clear_config("api_key", "base_url", "private_api_key", "private_base_url", "active_mode")
+    save_config(active_mode="auto")
+    print_success("Logged out; active_mode reset to auto")

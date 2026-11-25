@@ -369,7 +369,7 @@ def test_parse_batch_prevalidates_missing_and_exits_nonzero(tmp_path, parse_resp
     assert "missing.pdf" in result.output
     assert "Summary:" not in result.output
     assert not (output_dir / "a.md").exists()
-    mock_client.parser.parse.assert_called_once()
+    mock_client.parser.parse.assert_not_called()
 
 
 def test_parse_batch_without_out_errors(tmp_path):

@@ -1,6 +1,9 @@
 import os
 import stat
+import sys
 from unittest.mock import patch
+
+import pytest
 
 
 def test_resolve_config_from_param():
@@ -14,8 +17,9 @@ def test_resolve_config_from_param():
 
 def test_resolve_config_from_env():
     from somark._config import resolve_config
-    with patch.dict(os.environ, {"SOMARK_API_KEY": "sk-env-key", "SOMARK_BASE_URL": "https://env.api"}):
-        cfg = resolve_config()
+    with patch.dict(os.environ, {"SOMARK_API_KEY": "sk-env-key", "SOMARK_BASE_URL": "https://env.api"}, clear=True):
+        with patch("somark._config._load_toml_config", return_value={}):
+            cfg = resolve_config()
     assert cfg["api_key"] == "sk-env-key"
     assert cfg["base_url"] == "https://env.api"
 
@@ -26,17 +30,26 @@ def test_resolve_config_defaults():
         with patch("somark._config._load_toml_config", return_value={}):
             cfg = resolve_config()
     assert cfg["api_key"] is None
-    assert cfg["base_url"] == DEFAULT_BASE_URL
+    assert cfg["active_mode"] == "auto"
+    assert cfg["request_blocked"]
+    assert cfg["base_url"] in ("", None)
+    assert cfg["base_url"] != DEFAULT_BASE_URL
     assert cfg["timeout"] == DEFAULT_TIMEOUT
     assert cfg["max_retries"] == DEFAULT_MAX_RETRIES
 
 
 def test_resolve_config_priority():
     from somark._config import resolve_config
-    with patch.dict(os.environ, {"SOMARK_API_KEY": "sk-env"}):
-        with patch("somark._config._load_toml_config", return_value={"api_key": "sk-file"}):
+    file_cfg = {
+        "active_mode": "auto",
+        "api_key": "sk-file",
+        "base_url": "https://somark.cn/api/v1",
+    }
+    with patch.dict(os.environ, {"SOMARK_API_KEY": "sk-env"}, clear=True):
+        with patch("somark._config._load_toml_config", return_value=file_cfg):
             cfg = resolve_config(api_key="sk-param")
     assert cfg["api_key"] == "sk-param"  # param wins
+    assert cfg["base_url"] == "https://somark.cn/api/v1"
 
 
 def test_list_resolved_config_uses_schema_sources():
@@ -74,6 +87,8 @@ def test_save_config_sets_private_permissions(tmp_path):
     with patch("somark._config.CONFIG_FILE", config_file):
         save_config(api_key="sk-private-key")
 
+    if sys.platform == "win32":
+        pytest.skip("Windows does not store POSIX 0600 permission bits")
     mode = stat.S_IMODE(config_file.stat().st_mode)
     assert mode == 0o600
 
