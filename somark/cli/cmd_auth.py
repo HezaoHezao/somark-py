@@ -4,6 +4,15 @@ import json
 
 import typer
 
+from somark._config import (
+    clear_config,
+    get_active_profile,
+    get_config_value,
+    has_official_credentials,
+    has_private_credentials,
+    resolve_config,
+    save_config,
+)
 from somark.cli._help import HELP_CONTEXT_SETTINGS
 from somark.cli._output import console, print_error, print_success
 
@@ -15,14 +24,6 @@ def status(
     output: str = typer.Option("text", "--output", help="Output format: text|json"),
 ):
     """Report readiness for the active_mode (oxr always ready)."""
-    from somark._config import (
-        get_active_profile,
-        get_config_value,
-        has_official_credentials,
-        has_private_credentials,
-        resolve_config,
-    )
-
     cfg = resolve_config()
     mode = cfg.get("active_mode") or "auto"
     profile = get_active_profile() or "default"
@@ -66,8 +67,6 @@ def status(
 @app.command("logout", context_settings=HELP_CONTEXT_SETTINGS)
 def logout():
     """Clear both credential pairs and reset active_mode to auto."""
-    from somark._config import clear_config, save_config
-
     clear_config("api_key", "base_url", "private_api_key", "private_base_url", "active_mode")
     save_config(active_mode="auto")
     print_success("Logged out; active_mode reset to auto")

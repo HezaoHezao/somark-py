@@ -1,10 +1,26 @@
 from __future__ import annotations
 
-import typer
+import warnings
 from typing import Optional
 
-from somark.cli._help import HELP_CONTEXT_SETTINGS, examples
+import typer
+
+from somark import __version__
+from somark._config import set_active_profile
 from somark._warnings import SoMarkWarning
+import somark.cli._runtime as runtime
+from somark.cli._help import HELP_CONTEXT_SETTINGS, examples
+from somark.cli._output import print_error
+from somark.cli.cmd_auth import app as auth_app
+from somark.cli.cmd_auth import logout
+from somark.cli.cmd_config import app as config_app
+from somark.cli.cmd_doctor import app as doctor_app
+from somark.cli.cmd_login import login
+from somark.cli.cmd_parse import app as parse_app
+from somark.cli.cmd_pdf import app as pdf_app
+from somark.cli.cmd_preview import preview
+from somark.cli.cmd_usage import usage
+from somark.cli.cmd_use import use
 
 app = typer.Typer(
     name="somark",
@@ -14,10 +30,6 @@ app = typer.Typer(
     add_completion=False,
     invoke_without_command=True,
 )
-
-_api_key: Optional[str] = None
-_base_url: Optional[str] = None
-_timeout: Optional[float] = None
 
 
 @app.callback(invoke_without_command=True, context_settings=HELP_CONTEXT_SETTINGS)
@@ -34,17 +46,11 @@ def main(
     no_warnings: bool = typer.Option(False, "--no-warnings", help="Suppress SoMark warnings"),
     version: bool = typer.Option(False, "--version", "-v", help="Show version and exit", is_eager=True),
 ):
-    import warnings
-
-    global _api_key, _base_url, _timeout
-    _api_key = api_key
-    _base_url = base_url
-    _timeout = timeout
+    runtime.api_key = api_key
+    runtime.base_url = base_url
+    runtime.timeout = timeout
 
     if profile:
-        from somark._config import set_active_profile
-        from somark.cli._output import print_error
-
         try:
             set_active_profile(profile)
         except ValueError as exc:
@@ -53,8 +59,6 @@ def main(
 
     warnings.simplefilter("ignore" if no_warnings else "default", SoMarkWarning)
     if version:
-        from somark import __version__
-
         typer.echo(f"somark {__version__}")
         raise typer.Exit()
     if ctx.invoked_subcommand is None:
@@ -62,30 +66,12 @@ def main(
         raise typer.Exit()
 
 
-def _make_client():
-    from somark import SoMark
-
-    return SoMark(api_key=_api_key, base_url=_base_url, timeout=_timeout)
-
-
-from somark.cli import (
-    cmd_auth,
-    cmd_config,
-    cmd_doctor,
-    cmd_login,
-    cmd_parse,
-    cmd_pdf,
-    cmd_preview,
-    cmd_usage,
-    cmd_use,
-)
-
-app.add_typer(cmd_parse.app, name="parse")
-app.command("usage", context_settings=HELP_CONTEXT_SETTINGS, epilog=examples("somark usage --format table"))(cmd_usage.usage)
-app.add_typer(cmd_pdf.app, name="pdf")
-app.command("preview", context_settings=HELP_CONTEXT_SETTINGS, epilog=examples("somark preview output.md --port 7878"))(cmd_preview.preview)
-app.add_typer(cmd_doctor.app, name="doctor")
-app.add_typer(cmd_config.app, name="config")
+app.add_typer(parse_app, name="parse")
+app.command("usage", context_settings=HELP_CONTEXT_SETTINGS, epilog=examples("somark usage --format table"))(usage)
+app.add_typer(pdf_app, name="pdf")
+app.command("preview", context_settings=HELP_CONTEXT_SETTINGS, epilog=examples("somark preview output.md --port 7878"))(preview)
+app.add_typer(doctor_app, name="doctor")
+app.add_typer(config_app, name="config")
 app.command(
     "login",
     context_settings=HELP_CONTEXT_SETTINGS,
@@ -94,12 +80,12 @@ app.command(
         "somark login --api-key sk-... --no-open",
         "somark login --url https://private.example/api/v1",
     ),
-)(cmd_login.login)
+)(login)
 app.command(
     "use",
     context_settings=HELP_CONTEXT_SETTINGS,
     epilog=examples("somark use auto", "somark use oxr", "somark use private", "somark use"),
-)(cmd_use.use)
-app.add_typer(cmd_auth.app, name="auth")
+)(use)
+app.add_typer(auth_app, name="auth")
 # WorkBuddy cli.json unAuth + Skill 使用顶层 logout；auth logout 仍可用
-app.command("logout", context_settings=HELP_CONTEXT_SETTINGS)(cmd_auth.logout)
+app.command("logout", context_settings=HELP_CONTEXT_SETTINGS)(logout)

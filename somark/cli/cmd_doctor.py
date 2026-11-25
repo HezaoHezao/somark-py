@@ -1,8 +1,10 @@
 from __future__ import annotations
 import typer
 from pathlib import Path
+from somark._config import resolve_config
 from somark.cli._help import HELP_CONTEXT_SETTINGS, examples
 from somark.cli._output import console, print_success, print_error, print_warning, print_info
+from somark.resources.pdf import pdf_dependency_error
 from somark.resources.preview import _describe_vendor_source, _find_vendor_location, _validate_vendor_location
 
 VIEWER_REPO_URL = "https://github.com/SoMarkAI/SoMarkDownViewer.git"
@@ -105,11 +107,9 @@ def _run_checks():
         import sopdf
         print_success("sopdf installed")
     except ImportError as exc:
-        from somark.resources.pdf import pdf_dependency_error
         print_warning(pdf_dependency_error(exc))
 
     # API key
-    from somark._config import resolve_config
     cfg = resolve_config()
     if cfg.get("api_key"):
         key = cfg["api_key"]

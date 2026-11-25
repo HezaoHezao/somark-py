@@ -4,6 +4,7 @@ from typing import Optional
 
 import typer
 
+from somark._config import get_mode_readiness, has_official_credentials, has_private_credentials, save_config
 from somark.cli._output import console, print_error, print_success
 
 VALID_MODES = ("auto", "oxr", "private")
@@ -16,8 +17,6 @@ def use(
     ),
 ):
     """Switch active_mode among auto / oxr / private, or show readiness."""
-    from somark._config import get_mode_readiness, has_official_credentials, has_private_credentials, save_config
-
     if mode is None:
         snap = get_mode_readiness()
         console.print(f"active_mode = {snap['active_mode']}")

@@ -3,6 +3,7 @@ import typer
 from typing import Optional
 from somark.cli._help import HELP_CONTEXT_SETTINGS, examples
 from somark.cli._output import print_error, print_success, console
+from somark.resources.pdf import PDFProcessor
 
 app = typer.Typer(
     help="PDF operations.",
@@ -23,7 +24,6 @@ def toimg(
     format: Optional[str] = typer.Option(None, "--format", help="Filename template: {name}.page-{n}.png"),
     dpi: int = typer.Option(150, "--dpi", help="Resolution in DPI"),
 ):
-    from somark.resources.pdf import PDFProcessor
     pdf = PDFProcessor()
     result = pdf.to_images(file=file, out=out, filename_format=format, dpi=dpi)
     if result.ok:

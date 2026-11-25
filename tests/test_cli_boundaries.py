@@ -146,7 +146,7 @@ def test_fresh_parse_is_blocked_before_http(isolated, tmp_path):
 
 
 def test_login_no_open_probes_and_saves_official_mode(isolated):
-    with patch("somark._probe.probe_official_base_url", return_value="https://somark.ai/api/v1"):
+    with patch("somark.cli.cmd_login.probe_official_base_url", return_value="https://somark.ai/api/v1"):
         result = runner.invoke(_app(), ["login", "--no-open", "--api-key", "  sk-piped  "])
     assert result.exit_code == 0, result.output
     assert "active_mode=auto" in result.output
@@ -160,7 +160,7 @@ def test_login_no_open_probes_and_saves_official_mode(isolated):
 
 
 def test_login_stdin_key_is_not_treated_as_a_region(isolated):
-    with patch("somark._probe.probe_official_base_url", return_value="https://somark.cn/api/v1"):
+    with patch("somark.cli.cmd_login.probe_official_base_url", return_value="https://somark.cn/api/v1"):
         result = runner.invoke(_app(), ["login", "--no-open"], input="sk-from-stdin\n")
     assert result.exit_code == 0, result.output
     assert resolve_config()["api_key"] == "sk-from-stdin"
@@ -211,7 +211,7 @@ def test_use_oxr_then_parse_small_pdf(isolated, tmp_path):
     pdf = _pdf(tmp_path)
     mock_client = MagicMock()
     mock_client.parser.parse.return_value._content_for_format.return_value = "# ok\n"
-    with patch("somark.cli.main._make_client", return_value=mock_client):
+    with patch("somark.cli._runtime.make_client", return_value=mock_client):
         result = runner.invoke(_app(), ["parse", str(pdf)])
     assert result.exit_code == 0, result.output
     assert "# ok" in result.output
@@ -272,7 +272,7 @@ def test_official_login_rejects_bad_keys_and_writes_nothing(isolated):
 
 
 def test_probe_failure_does_not_save(isolated):
-    with patch("somark._probe.probe_official_base_url", return_value=None):
+    with patch("somark.cli.cmd_login.probe_official_base_url", return_value=None):
         result = runner.invoke(_app(), ["login", "--no-open", "--api-key", "sk-dead"])
     assert result.exit_code == 1, result.output
     assert "Nothing was saved" in result.output
@@ -416,7 +416,7 @@ def test_missing_file_is_reported_and_client_is_not_called(isolated, tmp_path):
     _write_config(isolated, 'active_mode = "oxr"\n')
     mock_client = MagicMock()
     missing = tmp_path / "nope.pdf"
-    with patch("somark.cli.main._make_client", return_value=mock_client):
+    with patch("somark.cli._runtime.make_client", return_value=mock_client):
         result = runner.invoke(_app(), ["parse", str(missing)])
     assert result.exit_code == 1
     assert "File not found" in result.output
@@ -434,7 +434,7 @@ def test_oxr_rejects_format_size_and_page_boundaries(isolated, tmp_path, monkeyp
     docx = tmp_path / "a.docx"
     docx.write_bytes(b"PK")
     mock_client = MagicMock()
-    with patch("somark.cli.main._make_client", return_value=mock_client):
+    with patch("somark.cli._runtime.make_client", return_value=mock_client):
         bare = runner.invoke(_app(), ["parse", str(no_suffix)])
         office = runner.invoke(_app(), ["parse", str(docx)])
     assert bare.exit_code == 1 and "(no suffix)" in bare.output
@@ -470,7 +470,7 @@ def test_explicit_private_base_url_skips_oxr_format_ban(isolated, tmp_path):
     docx.write_bytes(b"PK")
     mock_client = MagicMock()
     mock_client.parser.parse.return_value._content_for_format.return_value = "ok"
-    with patch("somark.cli.main._make_client", return_value=mock_client):
+    with patch("somark.cli._runtime.make_client", return_value=mock_client):
         result = runner.invoke(
             _app(),
             ["--base-url", "https://private.example/api/v1", "parse", str(docx)],
@@ -501,7 +501,7 @@ def test_batch_stops_when_one_file_is_missing(isolated, tmp_path):
     out = tmp_path / "out"
     out.mkdir()
     mock_client = MagicMock()
-    with patch("somark.cli.main._make_client", return_value=mock_client):
+    with patch("somark.cli._runtime.make_client", return_value=mock_client):
         result = runner.invoke(_app(), ["parse", str(present), str(missing), "--out", str(out)])
     assert result.exit_code == 1
     assert "File not found" in result.output

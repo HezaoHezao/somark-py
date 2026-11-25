@@ -5,6 +5,14 @@ from typing import Optional
 
 import typer
 
+from somark._config import (
+    CONFIG_FILE,
+    OFFICIAL_REGION_WORKBENCH,
+    classify_destination,
+    clear_config,
+    save_config,
+)
+from somark._probe import probe_official_base_url
 from somark.cli._output import console, print_error, print_success
 
 
@@ -26,15 +34,6 @@ def login(
     no_open: bool = typer.Option(False, "--no-open", help="Don't open browser"),
 ):
     """Save SoMark credentials. A URL selects the destination; a key alone probes the official site."""
-    from somark._config import (
-        CONFIG_FILE,
-        OFFICIAL_REGION_WORKBENCH,
-        classify_destination,
-        clear_config,
-        save_config,
-    )
-    from somark._probe import probe_official_base_url
-
     if url is None:
         if not no_open and sys.stdin.isatty():
             import webbrowser

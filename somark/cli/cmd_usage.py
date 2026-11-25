@@ -2,15 +2,15 @@ from __future__ import annotations
 import json
 import typer
 from typing import Optional
+from somark._exceptions import SoMarkError
 from somark.cli._output import print_error, print_usage_table
+import somark.cli._runtime as runtime
 
 
 def usage(
     format: str = typer.Option("table", "--format", help="Output format: text|json|table"),
 ):
-    from somark.cli.main import _make_client
-    from somark._exceptions import SoMarkError
-    client = _make_client()
+    client = runtime.make_client()
     try:
         u = client.usage.get()
         if format == "json":

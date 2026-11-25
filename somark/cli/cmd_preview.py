@@ -2,6 +2,7 @@ from __future__ import annotations
 import typer
 from typing import Optional
 from somark.cli._output import print_error, print_info, console
+from somark.resources.preview import SoMarkDownPreview
 
 
 def preview(
@@ -10,7 +11,6 @@ def preview(
     port: int = typer.Option(7878, "--port", help="Port to listen on"),
     no_open: bool = typer.Option(False, "--no-open", help="Don't open browser"),
 ):
-    from somark.resources.preview import SoMarkDownPreview
     preview_res = SoMarkDownPreview()
     try:
         server = preview_res.start(file=file, host=host, port=port, open_browser=not no_open)
